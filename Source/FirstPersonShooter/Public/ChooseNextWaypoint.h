@@ -27,4 +27,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Blackboard")
 	struct FBlackboardKeySelector Waypoint;
+
+private:
+
 };
