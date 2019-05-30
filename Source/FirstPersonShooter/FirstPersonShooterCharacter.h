@@ -48,6 +48,9 @@ class AFirstPersonShooterCharacter : public ACharacter
 public:
 	AFirstPersonShooterCharacter();
 
+	/** Fires a projectile. */
+	void OnFire();
+
 protected:
 	virtual void BeginPlay();
 
@@ -82,8 +85,7 @@ public:
 
 protected:
 	
-	/** Fires a projectile. */
-	void OnFire();
+	
 
 	/** Resets HMD orientation and position in VR. */
 	void OnResetVR();

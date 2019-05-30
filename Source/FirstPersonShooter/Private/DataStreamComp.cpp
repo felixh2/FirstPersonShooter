@@ -1,41 +1,44 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "../Public/DataStreamProvider.h"
-
+#include "../Public/DataStreamComp.h"
 #include "TimerManager.h"
+#include "FirstPersonShooterCharacter.h"
 
-//#include "Runtime/Engine/Classes/Engine/World.h"
-#include "DrawDebugHelpers.h"
-
-
-
-ADataStreamProvider::ADataStreamProvider()
+#pragma optimize("", off)
+// Sets default values for this component's properties
+UDataStreamComp::UDataStreamComp()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
+	// off to improve performance if you don't need them.
+	PrimaryComponentTick.bCanEverTick = true;
+
+	// ...
 }
 
-void ADataStreamProvider::BeginPlay()
+
+// Called when the game starts
+void UDataStreamComp::BeginPlay()
 {
 	Super::BeginPlay();
-	GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &ADataStreamProvider::GetDataStream, 0.04f, true, -1.f);
-	//	GetWorldTimerManager().SetTimer(GeneralTimer, 10.0f, true, -1.f);
+	auto Owner = GetOwner();
+	auto RootComp = Owner->GetRootComponent();
 
+	TP_CharacterComp= Cast<AFirstPersonShooterCharacter>(GetOwner());
+	if (!ensure(TP_CharacterComp)) { return; }
+	UE_LOG(LogTemp, Warning, TEXT("Data Stream component reporting"))
+	ConnectToDataStream();
+		//GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &UDataStreamComp::GetDataStream, 0.04f, true, -1.f);
+	
 }
 
-void ADataStreamProvider::Tick(float DeltaTime)
+// Called every frame
+void UDataStreamComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
-	Super::Tick(DeltaTime);
-	//WeaponDrawDebugLine();
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	if (IsConnected) GetDataStream();
 }
 
-void ADataStreamProvider::InitDataStreamProvider()
-{
-	//GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &ADataStreamProvider::GetDataStream, 0.04f, true, -1.f);
-	//GetWorldTimerManager().SetTimer(GeneralTimer, 10.0f, true, -1.f);
-
-}
-
-int ADataStreamProvider::Initlibusb(int VENDOR_ID, int PRODUCT_ID) {
+int UDataStreamComp::Initlibusb(int VENDOR_ID, int PRODUCT_ID) {
 	vendorId = VENDOR_ID;
 	productId = PRODUCT_ID;
 
@@ -47,14 +50,14 @@ int ADataStreamProvider::Initlibusb(int VENDOR_ID, int PRODUCT_ID) {
 	return 1;
 }
 
-void ADataStreamProvider::SetDebug(int level) {
+void UDataStreamComp::SetDebug(int level) {
 
 	/* Set debugging output to max level.
 	*/
 	libusb_set_debug(NULL, 3);
 }
 
-int ADataStreamProvider::OpenDevice()
+int UDataStreamComp::OpenDevice()
 {
 	devh = libusb_open_device_with_vid_pid(NULL, vendorId, productId);
 	if (!devh) {
@@ -64,7 +67,7 @@ int ADataStreamProvider::OpenDevice()
 	return  0;
 }
 
-int ADataStreamProvider::AttachDetachKernel()
+int UDataStreamComp::AttachDetachKernel()
 {
 	/* As we are dealing with a CDC-ACM device, it's highly probable that
 	* Linux already attached the cdc-acm driver to this device.
@@ -90,7 +93,7 @@ int ADataStreamProvider::AttachDetachKernel()
 	return 1;
 }
 
-int ADataStreamProvider::ReadChars(unsigned char *data, int size)
+int UDataStreamComp::ReadChars(unsigned char *data, int size)
 {
 	/* To receive characters from the device initiate a bulk_transfer to the
 	* Endpoint with address ep_in_addr.
@@ -110,7 +113,7 @@ int ADataStreamProvider::ReadChars(unsigned char *data, int size)
 	return actual_length;
 }
 
-void ADataStreamProvider::SetLineState()
+void UDataStreamComp::SetLineState()
 {
 	/* Start configuring the device:
 	* - set line state
@@ -124,7 +127,7 @@ void ADataStreamProvider::SetLineState()
 
 }
 
-void ADataStreamProvider::SetLineEncoding()
+void UDataStreamComp::SetLineEncoding()
 {
 	/* - set line encoding: here 9600 8N1
 	* 9600 = 0x2580 ~> 0x80, 0x25 in little endian
@@ -140,7 +143,7 @@ void ADataStreamProvider::SetLineEncoding()
 
 }
 
-void ADataStreamProvider::TerminateLibusb() {
+void UDataStreamComp::TerminateLibusb() {
 
 	libusb_close(devh);
 	//libusb_exit(NULL); UE Crashes
@@ -148,12 +151,17 @@ void ADataStreamProvider::TerminateLibusb() {
 
 }
 
-void ADataStreamProvider::GetDataStream() {
+void UDataStreamComp::GetDataStream() {
 
-	GeneralTimerCurrTime = GetWorldTimerManager().GetTimerElapsed(GeneralTimer);
-	GeneralTimerduration = GeneralTimerCurrTime - GeneralTimerPrevTime;
+	//GeneralTimerCurrTime = GetWorldTimerManager().GetTimerElapsed(GeneralTimer);
+	//GeneralTimerduration = GeneralTimerCurrTime - GeneralTimerPrevTime;
 	//UE_LOG(LogTemp, Warning, TEXT("duration of UpdateRotation is %f"), duration);
+	
+	
 
+	float PrevAngle_X = angle_X;
+	float PrevAngle_Y = angle_Y;
+	float PrevAngle_Z = angle_Z;
 
 	if (IsConnected)
 	{
@@ -163,50 +171,38 @@ void ADataStreamProvider::GetDataStream() {
 		angle_Z = *(float*)(buf + 8);
 
 		Fire = *(float *)(buf + 12);
-		UE_LOG(LogTemp, Warning, TEXT("angleX is : %f, angleY is : %f, angleZ is : %f"), angle_X, angle_Y, angle_Z);
+
 
 		
+
+		((APawn*)TP_CharacterComp)->AddControllerYawInput(-(angle_Z - PrevAngle_Z) / YawScale);
+		((APawn*)TP_CharacterComp)->AddControllerPitchInput((angle_X - PrevAngle_X) / PitchScale);
+		((APawn*)TP_CharacterComp)->AddControllerRollInput(-(angle_Y - PrevAngle_Y) / RollScale);
+
+		if ((Fire != 0) & ((GetWorld()->GetTimeSeconds()) - CurrTime > ReloadTime))
+		{
+			TP_CharacterComp->OnFire();
+			CurrTime = GetWorld()->GetTimeSeconds();
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("angleX is : %f, angleY is : %f, angleZ is : %f"), angle_X, angle_Y, angle_Z);
+
+		/*
 		FRotator ActorRotation = this->GetActorRotation();
 		ActorRotation.Pitch = -angle_X;
 		ActorRotation.Roll = -angle_Y;
 		ActorRotation.Yaw = -angle_Z;
 		SetActorRotation(ActorRotation);
-		
+		*/
 
 	}
 
 
 
-	GeneralTimerPrevTime = GetWorldTimerManager().GetTimerElapsed(GeneralTimer);
+	//GeneralTimerPrevTime = GetWorldTimerManager().GetTimerElapsed(GeneralTimer);
 }
 
-
-// TODO: move from here
-/*
-void ADataStreamProvider::WeaponDrawDebugLine() {
-
-	FVector Start = Weapon->GetSocketLocation(FName("FireNozzle"));
-	FVector End = Start + Weapon->GetSocketRotation(FName("FireNozzle")).Vector() * 10000;
-	DrawDebugLine(
-		GetWorld(),
-		Start,
-		End,
-		FColor(0, 0, 255),
-		false,
-		0.f,
-		0.f,
-		5.f
-	);
-}
-*/
-
-/*
-void ADataStreamProvider::SetWeaponReference(UWeapon * WeaponRef)
-{
-	Weapon = WeaponRef;
-}
-*/
-void ADataStreamProvider::ConnectToDataStream()
+void UDataStreamComp::ConnectToDataStream()
 {
 	int ARDUINO_VENDOR_ID = 0x2341;
 	int ARDUINO_PRODUCT_ID = 0x0042;
@@ -232,3 +228,33 @@ void ADataStreamProvider::ConnectToDataStream()
 		}
 	}
 }
+
+
+// TODO: move from here
+/*
+void ADataStreamProvider::WeaponDrawDebugLine() {
+
+FVector Start = Weapon->GetSocketLocation(FName("FireNozzle"));
+FVector End = Start + Weapon->GetSocketRotation(FName("FireNozzle")).Vector() * 10000;
+DrawDebugLine(
+GetWorld(),
+Start,
+End,
+FColor(0, 0, 255),
+false,
+0.f,
+0.f,
+5.f
+);
+}
+*/
+
+/*
+void ADataStreamProvider::SetWeaponReference(UWeapon * WeaponRef)
+{
+Weapon = WeaponRef;
+}
+*/
+
+#pragma optimize("", on)
+
