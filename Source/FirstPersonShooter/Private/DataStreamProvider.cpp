@@ -163,7 +163,7 @@ void ADataStreamProvider::GetDataStream() {
 		angle_Z = *(float*)(buf + 8);
 
 		Fire = *(float *)(buf + 12);
-		UE_LOG(LogTemp, Warning, TEXT("angleX is : %f, angleY is : %f, angleZ is : %f"), angle_X, angle_Y, angle_Z);
+		//UE_LOG(LogTemp, Warning, TEXT("angleX is : %f, angleY is : %f, angleZ is : %f"), angle_X, angle_Y, angle_Z);
 
 		
 		FRotator ActorRotation = this->GetActorRotation();

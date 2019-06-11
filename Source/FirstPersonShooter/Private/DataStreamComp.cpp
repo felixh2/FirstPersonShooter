@@ -185,7 +185,7 @@ void UDataStreamComp::GetDataStream() {
 			CurrTime = GetWorld()->GetTimeSeconds();
 		}
 
-		UE_LOG(LogTemp, Warning, TEXT("angleX is : %f, angleY is : %f, angleZ is : %f"), angle_X, angle_Y, angle_Z);
+		//UE_LOG(LogTemp, Warning, TEXT("angleX is : %f, angleY is : %f, angleZ is : %f"), angle_X, angle_Y, angle_Z);
 
 		/*
 		FRotator ActorRotation = this->GetActorRotation();
